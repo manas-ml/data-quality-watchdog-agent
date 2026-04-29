@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "data-quality-watchdog"
+version = "0.1.0"
+description = "Data Quality Watchdog Agent powered by Claude"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "duckdb>=1.1.0",
+    "duckdb-engine>=0.13.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.7.0",
+    "pyyaml>=6.0",
+    "python-dateutil>=2.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+watchdog = "watchdog.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/watchdog"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
