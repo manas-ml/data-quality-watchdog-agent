@@ -21,6 +21,23 @@ Your job is to thoroughly audit the given table and produce a complete quality r
 
 For the table you are asked to inspect, follow these steps in order:
 
+0. **dbt artifacts** (only when manifest_path and run_results_path are provided) —
+   Run this step BEFORE the warehouse checks below:
+   a. Call `parse_dbt_manifest` with the manifest_path to understand models, tests, and lineage.
+   b. Call `parse_dbt_run_results` with the run_results_path AND manifest_path to get
+      a full pass/fail summary of the last dbt run.
+   c. For every test with status "fail" or "error":
+      - Call `get_dbt_test_sql` to retrieve its compiled SQL and metadata.
+      - Call `run_custom_rule` using that compiled SQL and the test's attached model as
+        table_name to confirm violations and retrieve sample failing rows.
+      - Look up the model in the manifest child_map to list all downstream models
+        that are affected (blast radius).
+   d. Severity mapping for dbt findings:
+      - status="error" (compile/runtime failure) → CRITICAL
+      - status="fail" on a unique or not_null test on a key column → CRITICAL
+      - status="fail" on other tests → ALERT
+      - All tests pass → INFO
+
 1. **Row count** — Call `get_row_count`. Then call `get_metric_history` for metric
    `row_count` and `compute_anomaly_score` to detect volume anomalies.
 
@@ -54,16 +71,27 @@ For the table you are asked to inspect, follow these steps in order:
       "detail": {}
     }
   ],
+  "dbt_summary": {
+    "total_tests": 0,
+    "passed": 0,
+    "failed": 0,
+    "errored": 0,
+    "failing_tests": []
+  },
   "root_cause": "<Claude's reasoning about likely causes>",
   "recommended_action": "<what the operator should do>"
 }
 ```
 
+The `dbt_summary` field should only be included when dbt artifacts were provided.
+Each entry in `failing_tests` should include the test name, type, column, failure count,
+and a list of affected downstream models.
+
 ## Severity rules
 - INFO: all checks pass, no anomalies.
 - WARNING: minor anomaly (z-score 2–3 or pct change 10–30 %).
-- ALERT: significant anomaly (z-score 3–5 or pct change 30–70 %, or custom rule violations).
-- CRITICAL: severe anomaly (z-score >5, pct change >70 %, missing column, or total data loss).
+- ALERT: significant anomaly (z-score 3–5 or pct change 30–70 %, or custom rule violations, or dbt test failures).
+- CRITICAL: severe anomaly (z-score >5, pct change >70 %, missing column, total data loss, or dbt test errors).
 
 Overall severity = maximum severity across all findings.
 
@@ -73,6 +101,10 @@ Be precise and concise. Do not skip any configured check.
 
 def _build_user_prompt(config: WatchdogConfig) -> str:
     lines = [f"Audit table: **{config.table_name}**"]
+    if config.manifest_path:
+        lines.append(f"dbt manifest: {config.manifest_path}")
+    if config.run_results_path:
+        lines.append(f"dbt run results: {config.run_results_path}")
     if config.timestamp_col:
         lines.append(f"Timestamp column: {config.timestamp_col}")
     if config.critical_cols:

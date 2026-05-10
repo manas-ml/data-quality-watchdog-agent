@@ -45,6 +45,8 @@ def main() -> None:
     parser.add_argument("--baseline-path", default="baseline.db", help="SQLite baseline path")
     parser.add_argument("--z-threshold", type=float, default=3.0, help="Z-score anomaly threshold")
     parser.add_argument("--history-window", type=int, default=30, help="Historical window size")
+    parser.add_argument("--manifest-path", default=None, help="Path to dbt manifest.json")
+    parser.add_argument("--run-results-path", default=None, help="Path to dbt run_results.json")
 
     args = parser.parse_args()
 
@@ -60,6 +62,8 @@ def main() -> None:
         baseline_path=args.baseline_path,
         anomaly_z_threshold=args.z_threshold,
         history_window=args.history_window,
+        manifest_path=args.manifest_path,
+        run_results_path=args.run_results_path,
     )
 
     report = run_watchdog(config)

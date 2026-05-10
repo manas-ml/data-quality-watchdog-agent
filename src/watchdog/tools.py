@@ -191,6 +191,58 @@ TOOL_SCHEMAS: list[dict] = [
             "required": ["table_name", "metrics"],
         },
     },
+    {
+        "name": "parse_dbt_manifest",
+        "description": (
+            "Parse a dbt manifest.json file to extract the project structure: models, tests, "
+            "compiled SQL, and the lineage child_map. Returns an overview of all nodes."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "manifest_path": {"type": "string", "description": "Absolute path to manifest.json"},
+            },
+            "required": ["manifest_path"],
+        },
+    },
+    {
+        "name": "parse_dbt_run_results",
+        "description": (
+            "Parse a dbt run_results.json file to get test and model execution results. "
+            "Returns pass/fail/error counts and per-test details including failure row counts. "
+            "Pass manifest_path to enrich results with test type, column, and compiled SQL."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_results_path": {"type": "string", "description": "Absolute path to run_results.json"},
+                "manifest_path": {
+                    "type": "string",
+                    "description": "Optional path to manifest.json to enrich results with test metadata",
+                },
+            },
+            "required": ["run_results_path"],
+        },
+    },
+    {
+        "name": "get_dbt_test_sql",
+        "description": (
+            "Retrieve the compiled SQL for a specific dbt test from the manifest. "
+            "Use this to understand exactly what a failing test checks, then investigate "
+            "the underlying data using run_custom_rule."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "test_unique_id": {
+                    "type": "string",
+                    "description": "The unique_id of the test (e.g. 'test.jaffle_shop.not_null_orders_customer_id')",
+                },
+                "manifest_path": {"type": "string", "description": "Absolute path to manifest.json"},
+            },
+            "required": ["test_unique_id", "manifest_path"],
+        },
+    },
 ]
 
 
@@ -288,3 +340,21 @@ class ToolDispatcher:
             self._baseline.record_schema(table_name, cols)
 
         return {"recorded": True, "metrics_count": len(metrics)}
+
+    # ---- dbt artifact tool handlers -----------------------------------------
+
+    def _tool_parse_dbt_manifest(self, manifest_path: str) -> dict:
+        from watchdog.dbt.manifest import parse_manifest
+        return parse_manifest(manifest_path)
+
+    def _tool_parse_dbt_run_results(
+        self,
+        run_results_path: str,
+        manifest_path: str | None = None,
+    ) -> dict:
+        from watchdog.dbt.run_results import parse_run_results
+        return parse_run_results(run_results_path, manifest_path)
+
+    def _tool_get_dbt_test_sql(self, test_unique_id: str, manifest_path: str) -> dict:
+        from watchdog.dbt.manifest import get_test_compiled_sql
+        return get_test_compiled_sql(test_unique_id, manifest_path)

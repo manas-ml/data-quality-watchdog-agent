@@ -32,6 +32,30 @@ class AnomalyScore(BaseModel):
     severity: Literal["INFO", "WARNING", "ALERT", "CRITICAL"]
 
 
+class DbtTestResult(BaseModel):
+    unique_id: str
+    name: str
+    status: Literal["pass", "fail", "error", "skipped"]
+    failures: int = 0
+    execution_time: float = 0.0
+    test_type: str | None = None
+    attached_model: str | None = None
+    column: str | None = None
+    compiled_code: str | None = None
+    message: str | None = None
+
+
+class DbtRunSummary(BaseModel):
+    generated_at: str
+    elapsed_time: float
+    total_tests: int
+    passed: int
+    failed: int
+    errored: int
+    skipped: int
+    test_results: list[DbtTestResult] = Field(default_factory=list)
+
+
 class WatchdogConfig(BaseModel):
     table_name: str
     timestamp_col: str | None = None
@@ -41,3 +65,5 @@ class WatchdogConfig(BaseModel):
     baseline_path: str = "baseline.db"
     anomaly_z_threshold: float = 3.0
     history_window: int = 30
+    manifest_path: str | None = None
+    run_results_path: str | None = None
